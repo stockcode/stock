@@ -16,23 +16,26 @@ type
     IdMessage: TIdMessage;
     tmrOperate: TTimer;
     Memo1: TMemo;
-    tmrSearch: TTimer;
     ADOQuery: TADOQuery;
     btnHistory: TButton;
     dlgOpen: TOpenDialog;
     btnStop: TButton;
     btnAccount: TButton;
     dt: TDateTimePicker;
+    ds1: TADODataSet;
     procedure SendMail(subject:String; body:String);
     procedure CalculateTrade(parent:HWND);
     procedure CalculateDelegation(parent:HWND);
     procedure CalculateStockAccount(parent:HWND);
     procedure CalculateMoneyAccount(parent:HWND);
-    procedure CalculateGXMoneyAccount(parent:HWND); //国信证券
-    procedure CalculateGXStockAccount(parent:HWND); //国信证券
+    procedure CalculateGXMoneyAccount(); //国信证券
+    procedure CalculateGXStockAccount(); //国信证券
     procedure CalculateGXTrade(); //国信证券
     function Operate(operation:String;StockCode:String;price:String;amount:String):String;
     function  GetDialog(Caption:String):String;
+    function  GetGDDialog(Caption:String):String; //光大证券
+    procedure CancelGDDelegation(); //光大证券
+    procedure CalGDTrade(); //光大证券
     function GetDialogHWND(parent:HWND;Caption:String):HWND;
     function GetWindowHWND(Caption:String):HWND;
     function GetVisibleDialogHWND(parent:HWND):HWND;    
@@ -40,7 +43,6 @@ type
     procedure tmrOperateTimer(Sender: TObject);
     procedure StartWeiTuo();
     procedure tmrSearchTimer(Sender: TObject);
-    procedure FormCreate(Sender: TObject);
     procedure btnHistoryClick(Sender: TObject);
     procedure btnStopClick(Sender: TObject);
     procedure btnAccountClick(Sender: TObject);
@@ -52,7 +54,7 @@ type
 
 var
   frmMain: TfrmMain;
-  tdx, tdxWnd:HWND;
+  mnuWnd, tdx, tdxWnd:HWND;
 
 implementation
 
@@ -62,82 +64,91 @@ implementation
 function TfrmMain.Operate(operation:String; StockCode: String; price: String;
   amount: String):String;
 var
-  h,h1,h2,h3,yesBtn, noBtn, child :hwnd;
+  h,h1,h2,h3,yesBtn, noBtn, child,panel,okBtn :hwnd;
   Caption: PChar;
-  stock, stockamount, stockprice:String;
+  stockamount, stockprice:String;
   CaptionLength :Integer;
   sl:TStringList;
+  Ret: LongInt;
 begin
-  h:=findwindow(nil,'通达信网上交易V6.33 郑州商务内环路营业部 刘蓓');
-  if operation = '买入' then
-    postmessage(h,WM_KEYDOWN,VK_F8,0) //买入
+  postmessage(mnuWnd, WM_LBUTTONDOWN, 0, MakeLParam(200,10));
+  postmessage(mnuWnd, WM_LBUTTONUP, 0, MakeLParam(200,10));
+
+  if operation = 'BUY' then begin
+      postmessage(mnuWnd, WM_LBUTTONDOWN, 0, MakeLParam(20,10));
+      postmessage(mnuWnd, WM_LBUTTONUP, 0, MakeLParam(20,10));
+      h1:= FindWindowEx(tdxWnd, 0, 'TFrmBuyStock1', nil);
+  end
   else begin
-    postmessage(h,WM_KEYDOWN,VK_F9,0); //卖出
+      postmessage(mnuWnd, WM_LBUTTONDOWN, 0, MakeLParam(80,10));
+      postmessage(mnuWnd, WM_LBUTTONUP, 0, MakeLParam(80,10));
+      h1:= FindWindowEx(tdxWnd, 0, 'TFrmSellStock1', nil);
   end;
   sleep(1000);
-  h1:=FindWindowEx(h,0,'AfxFrameOrView42', nil);
-  h1 := GetWindow(h1,GW_CHILD); //Dialog
-  h1 := GetWindow(h1,GW_CHILD); //Afx
-  h1 := GetWindow(h1,GW_CHILD); //AfxMDIFrame42
-  h1 := GetWindow(h1,GW_CHILD); //AfxWnd42
-  h1 := GetWindow(h1,GW_HWNDNEXT); //AfxWnd42
-  h1 := GetWindow(h1,GW_CHILD); //Dialog
-  h1 := GetWindow(h1,GW_HWNDNEXT); //MHPDockBar
-  h1 := GetWindow(h1,GW_HWNDNEXT); //MHPDockBar
-  h1 := GetWindow(h1,GW_HWNDNEXT); //MHPDockBar
-  h1 := GetWindow(h1,GW_HWNDNEXT); //MHPDockBar
-  h1 := GetWindow(h1,GW_HWNDNEXT); //Dialog
-  h1 := GetWindow(h1,GW_HWNDNEXT); //Dialog
+  
 
-  h3 := FindWindowEx(h1,0,'edit', nil);
+  h1 := GetWindow(h1,GW_CHILD); //TPanel
+  panel := GetWindow(h1,GW_HWNDNEXT); //TPanel
+  okBtn := FindWindowEx(Panel,0,'TButton', '委托[F3]'); //下单
+
+  if operation = 'BUY' then
+    h3 := GetWindow(okBtn,GW_HWNDNEXT) //TEdit
+  else
+    h3 := GetWindow(okBtn,GW_HWNDPREV); //TEdit
+
   sendmessage(h3,WM_SETTEXT,0,Integer(PChar(StockCode)));
+  postmessage(h3,WM_KEYDOWN, VK_RETURN,0); //按下回车
+  sleep(1000);
+
+  h1 := FindWindowEx(panel,0,'TStockComboBox', nil);
+  h3 := GetWindow(h1,GW_CHILD); //TEdit 价格
+
+  sendmessage(h3,WM_SETTEXT,0,Integer(PChar(price)));
+  postmessage(h3,WM_KEYDOWN,VK_RETURN,0); //按下回车
+  sleep(2000);
+
+  h3 := GetWindow(h1,GW_HWNDNEXT);
+  h3 := GetWindow(h3,GW_HWNDNEXT);
+
+  if operation = 'SELL' then begin
+    stockamount := GetText(h3);
+    if amount = 'all' then amount := stockamount
+    else amount := IntToStr(strtoint(stockamount) div 2);
+  end;
+  
+  Memo1.Lines.Add(amount);
+
+  h3:=FindWindowEx(panel,0,'THSNumComBoBox', nil); //卖出数量
+  sendmessage(h3,CB_ADDSTRING,0,Integer(PChar(amount)));
+  Ret := SendMessage(h3, CB_FINDSTRINGEXACT, -1, LongInt(PChar(amount)));
+ if Ret = -1 then begin
+   ShowMessage('没有找到品种2!');
+   Exit;
+ end;
+ SendMessage(h3,CB_SETCURSEL,Ret,0);
+
+
   sleep(3000);
 
-  h3:=FindWindowEx(h1,0,'Button', '全部'); //全部
+  postmessage(okBtn,WM_LBUTTONDOWN,0,0); //按下鼠标
+  postmessage(okBtn,WM_LBUTTONUP,0,0);  //释放鼠标
 
-  postmessage(h3,WM_LBUTTONDOWN,0,0); //按下鼠标
-  postmessage(h3,WM_LBUTTONUP,0,0);  //释放鼠标
+  sleep(2000);
 
-  sleep(3000);
+   h := FindWindowEx(0,0,'TfrmDialogs', '确认');
+   h := GetWindow(h,GW_CHILD); //TPanel
+   h := GetWindow(h,GW_HWNDNEXT); //TPanel
+   h := GetWindow(h,GW_CHILD); //TGridPanel
 
-  h3:=FindWindowEx(h1,0,'Button', '卖出下单'); //卖出下单
-
-  postmessage(h3,WM_LBUTTONDOWN,0,0); //按下鼠标
-  postmessage(h3,WM_LBUTTONUP,0,0);  //释放鼠标
-
-  sleep(3000);
-
-   h := FindWindowEx(0,0,'#32770', '卖出交易确认');
-
-
-      yesBtn := FindWindowEx(h,0,'button', '卖出确认');
-      noBtn := FindWindowEx(h,0,'button', '取消');
-      h1 := GetWindow(noBtn,GW_HWNDNEXT); //放弃
-      h1 := GetWindow(h1,GW_HWNDNEXT); //static
-      h1 := GetWindow(h1,GW_HWNDNEXT); //static
-      CaptionLength := SendMessage(h1, WM_GETTEXTLENGTH, 0, 0) + 1;
-      getmem(Caption,CaptionLength);
-      sendmessage(h1,WM_GETTEXT,CaptionLength,integer(Caption));
-
-      sl := TStringList.Create;
-      sl.Delimiter := #13;
-      sl.DelimitedText := caption;
-
-      if (operation = sl[1]) and
-          (sl[3] = StockCode) then begin
+      yesBtn := FindWindowEx(h,0,'Tbutton', '是(&Y)');
         postmessage(yesBtn,WM_LBUTTONDOWN,0,0); //按下鼠标
         postmessage(yesBtn,WM_LBUTTONUP,0,0);  //释放鼠标
+
         sleep(3000);
-        Result := GetDialog('提示');
+        Result := GetGDDialog('金阳光提醒您');
         if Result = '' then begin
           Result := GetDialog('提交失败');
         end;
-
-      end else begin
-        postmessage(noBtn,WM_LBUTTONDOWN,0,0); //按下鼠标
-        postmessage(noBtn,WM_LBUTTONUP,0,0);  //释放鼠标
-        Result := '委托确认不对,股票代码=' + stock + ','+operation+'金额=' + stockprice + ','+operation+'数量=' + stockamount;
-      end;
 
 
 end;
@@ -192,7 +203,9 @@ end;
 procedure TfrmMain.tmrOperateTimer(Sender: TObject);
 var
   h,h1,h2,h3,h4,e,e1,e2:hwnd;
-  status, stockcode, stockamount, stockprice,operation:String;
+  operdate, status, stockcode, stockamount, stockprice,operation:String;
+  money :Integer;
+  price:Double;
   results :TStringList;
   n:Integer;
   sl,sline:TStringList;
@@ -200,86 +213,69 @@ var
   famount, stockName, fileName, line,tradedate:String;
   vi:TOSVersionInfoA;
 begin
-  btnPosition := 150;
-  vi.dwOSVersionInfoSize := SizeOf(TOSVersionInfo);
-  if GetVersionEx(VI) then begin
-    if vi.dwMajorVersion = 5 then begin
-      btnPosition := 170;
-    end;
-  end;
+
 
   tmrOperate.Enabled := false;
-  StartWeiTuo();
-  n := 1;
+
+
+
+
+  tdx:=FindWindowEx(0, 0, 'TfrmForexMainGUIHSINFO', '光大证券网上交易');
+
+  setforegroundwindow(tdx);
+
+  h1:=FindWindowEx(tdx,0,'TfrmBizContnr', nil);
+  mnuWnd := GetWindow(h1,GW_HWNDNEXT);
+  mnuWnd := GetWindow(mnuWnd,GW_CHILD);
+  mnuWnd := GetWindow(mnuWnd,GW_CHILD);
+
+  h1 := FindWindowEx(h1,0, nil, 'pnlBottom'); //TPanel
+  h1 := GetWindow(h1,GW_CHILD); //Afx
+  tdxWnd := GetWindow(h1,GW_HWNDNEXT); //AfxMDIFrame42
+
+  CalGDTrade;
+
+  CancelGDDelegation;
+
+    ds.Active := false;
+    ds.CommandText := 'select tradedate from stockaccount where loginid=''sunsulian'' order by tradedate desc limit 0,1';
+    ds.Active := true;
 
   tradedate := DateToStr(Now);
+  if not ds.Eof then tradedate := ds.fieldbyname('tradedate').AsString;
 
-  h:=findwindow(nil,'通达信网上交易V6.33 郑州商务内环路营业部 刘蓓');
-  h1:=FindWindowEx(h,0,'AfxFrameOrView42', nil);
-  h1 := GetWindow(h1,GW_CHILD); //Dialog
-  h1 := GetWindow(h1,GW_CHILD); //Afx
-  h1 := GetWindow(h1,GW_CHILD); //AfxMDIFrame42
-  h1 := GetWindow(h1,GW_CHILD); //AfxWnd42
-  h1 := GetWindow(h1,GW_HWNDNEXT); //AfxWnd42
-  h2 := GetWindow(h1,GW_CHILD); //MHPDockBar
-  h2 := GetWindow(h2,GW_CHILD); //MHPToolBar
-  postmessage(h2, WM_LBUTTONDOWN, 0, MakeLParam(btnPosition,10));
-  postmessage(h2, WM_LBUTTONUP, 0, MakeLParam(btnPosition,10));
-  sleep(3000);
-
-  h2 := GetDialogHWND(h1, '人民币:');
-  h2 := FindWindowEx(h2,0, nil, '输 出');
-  postmessage(h2, WM_LBUTTONDOWN, 0, 0);
-  postmessage(h2, WM_LBUTTONUP, 0, 0);
-  sleep(1000);
-  h2 := FindWindowEx(0,0,'#32770', '输出');
-  h1 := GetWindow(h2, GW_CHILD);
-  postmessage(h1, WM_LBUTTONDOWN, 0, 0);
-  postmessage(h1, WM_LBUTTONUP, 0, 0);
-
-  h1 := GetWindow(h1, GW_HWNDNEXT);
-  h1 := GetWindow(h1, GW_HWNDNEXT);
-  fileName := GetText(h1);
-
-  h1 := FindWindowEx(h2,0, nil, '确  定');
-  postmessage(h1, WM_LBUTTONDOWN, 0, 0);
-  postmessage(h1, WM_LBUTTONUP, 0, 0);
-  Sleep(2000);
+  ds.Active := False;
+  ds.CommandText := 'select * from stockaccount where isauto=1 and loginid=''sunsulian'' and tradedate=' + QuotedStr(tradedate);
+  ds.Active := true;
 
 
+  while not ds.Eof do begin
+    stockCode := ds.fieldbyname('stockcode').AsString;
+    stockName := ds.fieldbyname('stockname').AsString;
+    operation := ds.fieldbyname('oper').AsString;
+    operdate := ds.fieldbyname('operdate').AsString;
 
-  sline := TStringList.Create;
-  sl := TStringList.Create;
-  sl.LoadFromFile(fileName);
+    money := ds.fieldbyname('amount').AsInteger + ds.fieldbyname('remainamount').AsInteger;
+    ds1.Active := false;
+    ds1.CommandText := 'select ub,lb from mn5 where stockcode=' + QuotedStr(stockcode) + ' order by tradedate desc limit 0,1';
+    ds1.Active := true;
 
-  DeleteFile(fileName);
+    stockprice := ds1.fieldbyname('ub').AsString;
 
-  fileName := ExtractFileName(fileName) + ' - 记事本';
-  h1 := FindWindowEx(0, 0, 'Notepad', PChar(fileName));
-  postmessage(h1, WM_CLOSE, 0, 0);
+    if operation = 'BUY' then  begin
+       stockprice := ds1.fieldbyname('lb').AsString;
+       money := (Round(money / StrToFloat(stockprice)) div 100) * 100;
+       stockamount := IntToStr(money);
+    end else if operdate = DateToStr(Now) then begin
+      stockamount := 'all';
+    end;
 
+    ds1.Active := false;
 
-  for i:=4 to sl.Count - 1 do begin
-    line := sl[i];
-    stockCode := LeftStr(line, 6);
-    Delete(line, 1, 16);
-    stockName := AnsiLeftStr(line, 8);
-    stockName := Trim(stockName);
-    Delete(line, 1, 16);
-    sline.Delimiter := ' ';
-    sline.DelimitedText := line;
-
-    if (StrTofloat(sline[8]) > 3) then Continue;
-
-    if (stockcode <> '300063') then Continue;
-
-    showmessage(stockName + ':' + sline[8]);
-
-    operation := '卖出';
     status := Operate(operation, stockcode, stockprice, stockamount);
+    ds.Next;
+    stockamount := '';
   end;
-  sl.Free;
-  sline.Free;
 
 
 //    ds.FieldByName('result').Value := status;
@@ -294,9 +290,6 @@ begin
 //  end;
 //  ds.Close;
 
-  Sleep(1000);
-  h:=findwindow(nil,'网上股票交易系统5.0');
-  sendmessage(h,WM_CLOSE,0,0);
 //  sendmail('股票: 委托完毕', results.GetText);
   Close;
 end;
@@ -387,28 +380,27 @@ begin
   end;
 
 
-  tmrSearch.Enabled := False;
 
   StartWeiTuo();
 
   tdx:=GetWindowHWND('通达信网上交易');
-  
+
   h1:=FindWindowEx(tdx,0,'AfxFrameOrView42', nil);
   h1 := GetWindow(h1,GW_CHILD); //Dialog
   h1 := GetWindow(h1,GW_CHILD); //Afx
   h1 := GetWindow(h1,GW_CHILD); //AfxMDIFrame42
   h1 := GetWindow(h1,GW_CHILD); //AfxWnd42
   tdxWnd := GetWindow(h1,GW_HWNDNEXT); //AfxWnd42
-  
-  h2 := GetWindow(h1,GW_CHILD); //MHPDockBar
+
+  h2 := GetWindow(tdxWnd,GW_CHILD); //MHPDockBar
   h2 := GetWindow(h2,GW_CHILD); //MHPToolBar
   postmessage(h2, WM_LBUTTONDOWN, 0, MakeLParam(btnPosition,10));
   postmessage(h2, WM_LBUTTONUP, 0, MakeLParam(btnPosition,10));
   sleep(3000);
 
-  CalculateGXMoneyAccount(h1); //查询资金
+  CalculateGXMoneyAccount(); //查询资金
   sleep(1000);
-  CalculateGXStockAccount(h1); //查询股票
+  CalculateGXStockAccount(); //查询股票
   sleep(3000);
   CalculateGXTrade(); // 当日成交
   sleep(1000);
@@ -428,16 +420,6 @@ begin
   getmem(Caption,CaptionLength);
   sendmessage(h,WM_GETTEXT,CaptionLength,integer(Caption));
   result := Caption;
-end;
-
-procedure TfrmMain.FormCreate(Sender: TObject);
-var
-  hour,min,sec,msec:Word;
-begin
-  DecodeTime(Now(), hour,min,sec,msec);
-
-  if (hour >= 15) then tmrSearch.Enabled := true
-  else tmrOperate.Enabled := true;
 end;
 
 procedure TfrmMain.CalculateDelegation(parent: HWND);
@@ -578,14 +560,17 @@ begin
   sline.Free;
 end;
 
-procedure TfrmMain.CalculateGXMoneyAccount(parent: HWND);
+procedure TfrmMain.CalculateGXMoneyAccount();
 var
   sLine:TStringList;
-  h2,h3:HWND;
+  h1, h2,h3:HWND;
   remain,available,stock,total,profit,zzc, tradedate,mailbody:String;
 begin
-    h2 := GetDialogHWND(parent, '人民币:');
-  h3 := FindWindowEx(h2,0, nil, '相关资讯');
+
+  h1:= GetVisibleDialogHWND(tdxWnd);
+
+
+  h3 := FindWindowEx(h1,0, nil, '相关资讯');
   h3 := GetWindow(h3,GW_HWNDNEXT);
 
   sline := TStringList.Create;
@@ -611,7 +596,7 @@ begin
 
 end;
 
-procedure TfrmMain.CalculateGXStockAccount(parent: HWND);
+procedure TfrmMain.CalculateGXStockAccount();
 var
   h1, h2:HWND;
   sl,sline:TStringList;
@@ -619,8 +604,10 @@ var
   famount, stockName, stockCode, fileName, line,tradedate:String;
 begin
   tradedate := DateToStr(Now);
-  h2 := GetDialogHWND(parent, '人民币:');
-  h2 := FindWindowEx(h2,0, nil, '输 出');
+
+  h1:= GetVisibleDialogHWND(tdxWnd);
+
+  h2 := FindWindowEx(h1,0, nil, '输 出');
   postmessage(h2, WM_LBUTTONDOWN, 0, 0);
   postmessage(h2, WM_LBUTTONUP, 0, 0);
   sleep(1000);
@@ -782,7 +769,6 @@ end;
 
 procedure TfrmMain.btnStopClick(Sender: TObject);
 begin
-  tmrSearch.Enabled := false;
   tmrOperate.Enabled := false;
 end;
 
@@ -879,6 +865,187 @@ begin
      end;
 
      result := 0;
+end;
+
+function TfrmMain.GetGDDialog(Caption: String): String;
+var
+  h,h1,child,yesBtn, closeBtn:HWND;
+  pCaption: PChar;
+  CaptionLength :Integer;
+begin
+   h := FindWindowEx(0,0,'TfrmDialogs', PChar(Caption));
+
+   h := GetWindow(h,GW_CHILD); //TPanel
+   h := GetWindow(h,GW_HWNDNEXT); //TPanel
+   h := GetWindow(h,GW_CHILD); //TGridPanel
+
+   yesBtn := FindWindowEx(h,0,'Tbutton', '是(&Y)');
+   
+   if yesBtn = 0 then
+     yesBtn := FindWindowEx(h,0,'Tbutton', '确定(&O)');
+
+   postmessage(yesBtn,WM_LBUTTONDOWN,0,0); //按下鼠标
+   postmessage(yesBtn,WM_LBUTTONUP,0,0);  //释放鼠标
+
+
+end;
+
+procedure TfrmMain.CancelGDDelegation;
+var
+  h1,panel,okBtn:HWND;
+begin
+  postmessage(mnuWnd, WM_LBUTTONDOWN, 0, MakeLParam(160,10));
+  postmessage(mnuWnd, WM_LBUTTONUP, 0, MakeLParam(160,10));
+
+  Sleep(3000);
+  GetGDDialog('提示');
+  Sleep(2000);
+
+  h1:= FindWindowEx(tdxWnd, 0, 'TFrmBatchWithDraw', nil);
+  panel := FindWindowEx(h1,0,'TPanel', nil);
+  okBtn := FindWindowEx(panel,0,'TButton', '撤全部(F7)'); //撤单
+
+  postmessage(okBtn, WM_LBUTTONDOWN, 0, MakeLParam(160,10));
+  postmessage(okBtn, WM_LBUTTONUP, 0, MakeLParam(160,10));
+  sleep(3000);
+  GetGDDialog('警告');
+  sleep(2000);  
+  GetGDDialog('选择');
+  sleep(2000);
+  GetGDDialog('提示');
+  sleep(2000);  
+  GetGDDialog('提示');
+end;
+
+procedure TfrmMain.CalGDTrade;
+var
+  h1,h2,panel1,panel2,btn:HWND;
+  id,tradedate,line,fileName,stockCode,stockname,tradetime,price,amount,oper,money,tradeno:String;
+  sl,sline:TStringList;
+  i:Integer;
+begin
+  tradedate := DateToStr(now);
+
+      postmessage(mnuWnd, WM_LBUTTONDOWN, 0, MakeLParam(20,10));
+      postmessage(mnuWnd, WM_LBUTTONUP, 0, MakeLParam(20,10));
+
+      Sleep(3000);
+      h1:= FindWindowEx(tdxWnd, 0, 'TFrmBuyStock1', nil);
+      h1 := GetWindow(h1,GW_CHILD); //TPanel
+      h1 := GetWindow(h1,GW_CHILD); //TPageControl
+
+      postmessage(h1, WM_LBUTTONDOWN, 0, MakeLParam(150,5));
+      postmessage(h1, WM_LBUTTONUP, 0, MakeLParam(150,5));
+      h1:= FindWindowEx(h1, 0, 'TTabSheet', '成交[F8]');
+      Sleep(3000);
+
+
+      h1:= FindWindowEx(h1, 0, 'TPanel', nil);
+      h1:= FindWindowEx(h1, 0, 'TBitBtn', '输出');
+      postmessage(h1,WM_LBUTTONDOWN,0,0); //按下鼠标
+      postmessage(h1,WM_LBUTTONUP,0,0);  //释放鼠标
+      Sleep(3000);
+      
+       h2 := FindWindowEx(0,0,'TfrmSetting', '输出选择');
+       if h2 = 0 then exit;
+       
+  panel1 := GetWindow(h2, GW_CHILD);
+  panel2 := GetWindow(panel1, GW_HWNDNEXT);
+    
+  panel1 := getWindow(panel1, GW_CHILD); // TfrmPrintSetting
+  h1 := FindWindowEx(panel1, 0, 'TRadioButton', '输出到文件');
+  postmessage(h1, WM_LBUTTONDOWN, 0, 0);
+  postmessage(h1, WM_LBUTTONUP, 0, 0);
+  h1 := FindWindowEx(panel1, 0, 'TRadioGroup', '');
+  h1 := FindWindowEx(h1, 0, 'TGroupButton', '文本');
+  postmessage(h1, WM_LBUTTONDOWN, 0, 0);
+  postmessage(h1, WM_LBUTTONUP, 0, 0);
+
+  Sleep(1000);
+  h1 := FindWindowEx(panel1, 0, 'TEdit', nil);
+  fileName := GetText(h1);
+
+
+  btn := FindWindowEx(panel2, 0, 'TButton', '确定(&O)');
+  postmessage(btn, WM_LBUTTONDOWN, 0, 0);
+  postmessage(btn, WM_LBUTTONUP, 0, 0);
+
+
+
+  Sleep(2000);
+
+
+
+  sline := TStringList.Create;
+  sl := TStringList.Create;
+  sl.LoadFromFile(fileName);
+
+  DeleteFile(fileName);
+
+  fileName := ExtractFileName(fileName) + ' - 记事本';
+  h1 := FindWindowEx(0, 0, 'Notepad', PChar(fileName));
+  postmessage(h1, WM_CLOSE, 0, 0);
+
+  sline.Delimiter := ' ';
+  sline.DelimitedText := sl[1];
+
+
+
+  for i:=1 to sl.Count - 1 do begin
+    line := sl[i];
+    if AnsiStartsStr('合计', line) then break;
+    sline.Delimiter := ' ';
+    sline.DelimitedText := line;
+
+    id := sline[0];
+    tradetime := sline[1];
+    stockCode := sline[3];
+    stockName := sline[4];
+    price := sline[5];
+    amount := sline[6];
+    oper := sline[7];
+    tradeno := sline[8];
+    money := sline[9];
+
+    ds.Active := false;
+    ds.CommandText := 'select * from tradelog where loginid=''sunsulian'' and tradeno=' + tradeno;
+    ds.Active := true;
+
+    if ds.Eof then begin
+
+      ADOQuery.SQL.Clear;
+      ADOQuery.SQL.Add(Format('insert into tradelog(loginid, time, stockcode, stockname, tradeprice, tradeamount, operation, tradeno, trademoney, tradedate, id) values(''sunsulian'', ''%s'',''%s'',''%s'',%s,%s,''%s'',%s,%s,''%s'',%s)', [tradetime, stockCode,stockName,price,amount,oper,tradeno,money,tradedate, id]));
+      ADOQuery.ExecSQL;
+    end;
+  end;
+  sl.Free;
+  sline.Free;
+
+
+  ds.Active := false;
+  ds.CommandText := 'select stockcode, operation, sum(trademoney) as money from tradelog where loginid=''sunsulian'' and tradedate=' + QuotedStr(tradedate) + ' group by tradeno';
+  ds.Active := true;
+
+  while not ds.Eof do begin
+    stockCode := ds.fieldbyname('stockcode').AsString;
+    oper := ds.fieldbyname('operation').AsString;
+    money := ds.fieldbyname('money').AsString;
+    if oper = '卖' then oper := 'BUY'
+    else oper := 'SELL';
+
+    ds1.Active := false;
+    ds1.CommandText := 'select pkid from stockaccount where stockcode=' + QuotedStr(stockCode) + ' and loginid=''sunsulian'' order by tradedate desc limit 0,1';
+    ds1.Active := true;
+
+    if not ds1.Eof then begin
+      ADOQuery.SQL.Clear;
+      ADOQuery.SQL.Add('update stockaccount set oper=' + QuotedStr(oper) + ', amount=' + money +', operdate=' + QuotedStr(tradedate) + ' where pkid=' + ds1.fieldbyname('pkid').AsString);
+      ADOQuery.ExecSQL;
+    end;
+    
+    ds.Next;
+
+  end;
 end;
 
 end.

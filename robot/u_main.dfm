@@ -11,7 +11,6 @@ object frmMain: TfrmMain
   Font.Name = 'MS Sans Serif'
   Font.Style = []
   OldCreateOrder = False
-  OnCreate = FormCreate
   PixelsPerInch = 96
   TextHeight = 13
   object Memo1: TMemo
@@ -102,18 +101,9 @@ object frmMain: TfrmMain
     Top = 48
   end
   object tmrOperate: TTimer
-    Enabled = False
-    Interval = 3000
     OnTimer = tmrOperateTimer
     Left = 16
     Top = 16
-  end
-  object tmrSearch: TTimer
-    Enabled = False
-    Interval = 3000
-    OnTimer = tmrSearchTimer
-    Left = 152
-    Top = 48
   end
   object ADOQuery: TADOQuery
     Connection = ADOConnection1
@@ -124,5 +114,11 @@ object frmMain: TfrmMain
   object dlgOpen: TOpenDialog
     Left = 96
     Top = 48
+  end
+  object ds1: TADODataSet
+    Connection = ADOConnection1
+    Parameters = <>
+    Left = 48
+    Top = 16
   end
 end
