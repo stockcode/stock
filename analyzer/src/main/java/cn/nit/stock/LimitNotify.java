@@ -54,7 +54,7 @@ public class LimitNotify
         }
 
 
-        FileUtils.writeStringToFile(new File("C:\\new_jyplug\\T0002\\blocknew\\ZTB.blk"), limit.toString());
+        FileUtils.writeStringToFile(new File("D:\\new_jyplug\\T0002\\blocknew\\ZTB.blk"), limit.toString());
         System.err.println(limit.toString());
     }
 
@@ -127,22 +127,32 @@ public class LimitNotify
 
         if(yprice * 1.1 - highPrice < 0.01)
         {
-            System.err.println((new StringBuilder("股票代码：")).append(stockcode).append(",名称：").append(name).append(",涨停日期：").append(tradedate).toString());
-            StringBuilder sb = new StringBuilder();
-            sb.append("insert into stocklimit ");
-
-
-            sb.append((new StringBuilder("(stockname, stockcode, yesterdayprice, openprice, lowprice, highprice, closeprice, limitdate) values('")).append(name).toString());
-            sb.append((new StringBuilder("','")).append(stockcode).toString());
-            sb.append((new StringBuilder("',")).append(yprice).toString());
-            sb.append((new StringBuilder(",")).append(openprice).toString());
-            sb.append((new StringBuilder(",")).append(lowprice).toString());
-            sb.append((new StringBuilder(",")).append(highprice).toString());
-            sb.append((new StringBuilder(",")).append(closePrice).toString());
-            sb.append((new StringBuilder(",'")).append(tradedate).append("')").toString());
             Statement limitSt = stockConn.createStatement();
-            String sql = sb.toString();
-            limitSt.execute(sql);
+
+            String sql = "select * from stocklimit where stockcode='" + stockcode + "' and limitdate='" + tradedate + "'";
+            ResultSet rs = limitSt.executeQuery(sql);
+
+            System.err.println((new StringBuilder("股票代码：")).append(stockcode).append(",名称：").append(name).append(",涨停日期：").append(tradedate).toString());
+            if (rs.next()) {
+                System.err.println("已存在");
+            } else {
+
+                StringBuilder sb = new StringBuilder();
+                sb.append("insert into stocklimit ");
+
+
+                sb.append((new StringBuilder("(stockname, stockcode, yesterdayprice, openprice, lowprice, highprice, closeprice, limitdate) values('")).append(name).toString());
+                sb.append((new StringBuilder("','")).append(stockcode).toString());
+                sb.append((new StringBuilder("',")).append(yprice).toString());
+                sb.append((new StringBuilder(",")).append(openprice).toString());
+                sb.append((new StringBuilder(",")).append(lowprice).toString());
+                sb.append((new StringBuilder(",")).append(highprice).toString());
+                sb.append((new StringBuilder(",")).append(closePrice).toString());
+                sb.append((new StringBuilder(",'")).append(tradedate).append("')").toString());
+
+                sql = sb.toString();
+                limitSt.execute(sql);
+            }
         }
 
         if (limitList.containsKey(stockcode)) {
