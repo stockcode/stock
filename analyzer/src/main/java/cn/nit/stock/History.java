@@ -27,7 +27,8 @@ import org.apache.commons.httpclient.params.HttpMethodParams;
  * 
  */
 public class History {
-	public static void main(String[] args) throws Exception {
+
+    public static void main(String[] args) throws Exception {
 		
 		DateFormat dataFormat = new SimpleDateFormat("yyyy-MM-dd");
 		

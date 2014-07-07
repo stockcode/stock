@@ -1,11 +1,16 @@
 package cn.nit.stock.hexin;
 
+import com.mongodb.DBObject;
+import org.springframework.data.annotation.Id;
+
 import java.io.IOException;
 import java.io.RandomAccessFile;
 
 
 public class D1BarRecord
 {
+
+    private String id;
 
     private String date;
     private double open;
@@ -141,4 +146,26 @@ public class D1BarRecord
         this.volume = volume;
     }
 
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    @Override
+    public String toString() {
+        final StringBuilder sb = new StringBuilder("D1BarRecord{");
+        sb.append("id='").append(id).append('\'');
+        sb.append(", date='").append(date).append('\'');
+        sb.append(", open=").append(open);
+        sb.append(", high=").append(high);
+        sb.append(", low=").append(low);
+        sb.append(", close=").append(close);
+        sb.append(", amount=").append(amount);
+        sb.append(", volume=").append(volume);
+        sb.append('}');
+        return sb.toString();
+    }
 }
