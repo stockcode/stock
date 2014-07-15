@@ -10,6 +10,8 @@ import com.mongodb.MongoClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.MongoOperations;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -31,19 +33,23 @@ public class AddD1Future
     public static void main(String args[])
         throws Exception
     {
-        getData();
+        String[] ins = new String[]{
+                "IF1407"};
+
+        for(String code:ins) {
+        getData(code);
+        }
     }
 
-    private static void getData()
+    private static void getData(String stockcode)
             throws ClassNotFoundException, SQLException, FileNotFoundException, UnknownHostException {
 
-            String stockcode = "IFLX0";
             System.err.println(stockcode);
 
 
         MongoClient mongoClient = new MongoClient( "115.28.160.121" );
         DB db = mongoClient.getDB("future");
-        DBCollection coll = db.getCollection("IFLX0");
+        DBCollection coll = db.getCollection(stockcode);
 
         MongoOperations mongoOps = new MongoTemplate(mongoClient, "future");
 
@@ -58,10 +64,12 @@ public class AddD1Future
                 for(int i = 0; i < j; i++)
                 {
                     D1BarRecord record = ad1barrecord[i];
-                    if(record.getDate() != null && record.getOpen() > 100)
+                    if(record.getDate() != null && record.getOpen() > 10)
                     {
                         System.err.println(record);
-                        mongoOps.insert(record);
+
+                        //Query searchUserQuery = new Query(Criteria.where("date").is(record.getDate()));
+                        mongoOps.insert(record, stockcode);
                     }
                 }
 

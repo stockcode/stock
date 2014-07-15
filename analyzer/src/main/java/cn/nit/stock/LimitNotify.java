@@ -54,7 +54,7 @@ public class LimitNotify
         }
 
 
-        FileUtils.writeStringToFile(new File("D:\\new_jyplug\\T0002\\blocknew\\ZTB.blk"), limit.toString());
+        FileUtils.writeStringToFile(new File("c:\\new_jyplug\\T0002\\blocknew\\ZTB.blk"), limit.toString());
         System.err.println(limit.toString());
     }
 
@@ -93,7 +93,7 @@ public class LimitNotify
         results = results[1].split(",");
         System.out.println((new StringBuilder(String.valueOf(stockcode))).append("=").append(results[0]).toString());
         name = results[0].trim();
-        if(name.equals(""))
+        if(name.equals("") || results.length < 2)
         {
             method.releaseConnection();
             return;
