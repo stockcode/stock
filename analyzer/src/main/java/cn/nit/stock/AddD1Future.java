@@ -68,8 +68,10 @@ public class AddD1Future
                     {
                         System.err.println(record);
 
-                        //Query searchUserQuery = new Query(Criteria.where("date").is(record.getDate()));
-                        mongoOps.insert(record, stockcode);
+                        Query searchUserQuery = new Query(Criteria.where("date").is(record.getDate()));
+                        if (!mongoOps.exists(searchUserQuery, D1BarRecord.class)) {
+                            mongoOps.insert(record, stockcode);
+                        }
                     }
                 }
 
