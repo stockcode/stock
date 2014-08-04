@@ -45,25 +45,54 @@ public class DayFuture
         try {
             while(cursor.hasNext()) {
                 DBObject object = cursor.next();
-                addD1Bar(object);
+                D1BarRecord record = null;
+
+                String instrumentID = object.get("InstrumentID").toString();
+
+                String code = instrumentID;
+
+                if (!StringUtils.isNumeric(instrumentID.substring(instrumentID.length()-4)))
+                {
+                    code = instrumentID.substring(0, instrumentID.length() - 3) + "1" + instrumentID.substring(instrumentID.length() - 3);
+                }
+
+                if (instrumentID.startsWith("IF")) {
+                    code = "CFF_RE_" + instrumentID;
+                    record = addIFD1Bar(code.toUpperCase());
+                }
+                else {
+                    //record = addD1Bar(code.toUpperCase());
+                    continue;
+                }
+
+                object.put("Volume", record.getVolume());
+
                 collection.save(object);
+
+                Query searchUserQuery = new Query(Criteria.where("date").is(record.getDate()));
+                if (!mongoOps.exists(searchUserQuery, D1BarRecord.class, instrumentID)) {
+                    mongoOps.insert(record, instrumentID);
+                } else {
+                    System.err.println("已存在");
+                }
+
+
             }
         } finally {
             cursor.close();
         }
     }
 
-    private static void addIFD1Bar(DBObject object)
+    private static D1BarRecord addIFD1Bar(String code)
         throws ClassNotFoundException, HttpException, IOException
     {
-        String stockcode = object.get("InstrumentID").toString();
         Connection conn;
         HttpClient client;
         GetMethod method;
         //conn = ConnUtils.getConn((new StringBuilder("a")).append(stockcode).toString());
         client = new HttpClient();
         String stocktype = "sz";
-        method = new GetMethod((new StringBuilder("http://hq.sinajs.cn/list=")).append("CFF_RE_IF1407").toString());
+        method = new GetMethod((new StringBuilder("http://hq.sinajs.cn/list=")).append(code).toString());
 
         method.addRequestHeader("Content-type", "text/html; charset=utf-8");
         method.getParams().setParameter("http.method.retry-handler", new DefaultHttpMethodRetryHandler(3, false));
@@ -86,7 +115,7 @@ public class DayFuture
         String result = new String(sbf.toString().getBytes(method.getResponseCharSet()), charset);
         results = result.split("\"");
         results = results[1].split(",");
-        System.out.println((new StringBuilder(String.valueOf(stockcode))).append("=").append(results[0]).toString());
+        System.out.println((new StringBuilder(String.valueOf(code))).append("=").append(results[0]).toString());
         name = results[0].trim();
 
 
@@ -100,20 +129,15 @@ public class DayFuture
         record.setAmount(Double.parseDouble(results[5]));
         record.setDate(results[36].replaceAll("-", ""));
 
-        System.err.println(stockcode + ":" +record);
+        System.err.println(code + ":" +record);
 
-        Query searchUserQuery = new Query(Criteria.where("date").is(record.getDate()));
-        if (!mongoOps.exists(searchUserQuery, D1BarRecord.class, stockcode)) {
-            mongoOps.insert(record, stockcode);
-        } else {
-            System.err.println("已存在");
-        }
+        return record;
     }
 
-    private static void addD1Bar(DBObject object)
+    private static D1BarRecord addD1Bar(String code)
             throws ClassNotFoundException, HttpException, IOException
     {
-        String instrumentID = object.get("InstrumentID").toString();
+
 
         Connection conn;
         HttpClient client;
@@ -122,13 +146,9 @@ public class DayFuture
         client = new HttpClient();
 
 
-        String code = instrumentID;
 
-        if (!StringUtils.isNumeric(instrumentID.substring(instrumentID.length()-4)))
-        {
-            code = instrumentID.substring(0, instrumentID.length() - 3) + "1" + instrumentID.substring(instrumentID.length() - 3);
-        }
-        method = new GetMethod((new StringBuilder("http://hq.sinajs.cn/list=")).append(code.toUpperCase()).toString());
+
+        method = new GetMethod((new StringBuilder("http://hq.sinajs.cn/list=")).append(code).toString());
 
         method.addRequestHeader("Content-type", "text/html; charset=utf-8");
         method.getParams().setParameter("http.method.retry-handler", new DefaultHttpMethodRetryHandler(3, false));
@@ -151,13 +171,13 @@ public class DayFuture
         String result = new String(sbf.toString().getBytes(method.getResponseCharSet()), charset);
         results = result.split("\"");
         results = results[1].split(",");
-        System.out.println((new StringBuilder(String.valueOf(instrumentID))).append("=").append(results[0]).toString());
+        System.out.println((new StringBuilder(String.valueOf(code))).append("=").append(results[0]).toString());
         name = results[0].trim();
         if(name.equals(""))
         {
-            System.err.println(instrumentID + "不存在");
+            System.err.println(code + "不存在");
             method.releaseConnection();
-            return;
+            return null;
         }
 
         D1BarRecord record = new D1BarRecord();
@@ -170,21 +190,11 @@ public class DayFuture
         record.setVolume(Integer.parseInt(results[14]));
         record.setDate(results[17].replaceAll("-", ""));
 
-        System.err.println(instrumentID + ":" +record);
+        System.err.println(code + ":" +record);
 
 
-        object.put("Volume", record.getVolume());
-
-        Query searchUserQuery = new Query(Criteria.where("date").is(record.getDate()));
-        if (!mongoOps.exists(searchUserQuery, D1BarRecord.class, instrumentID)) {
-            mongoOps.insert(record, instrumentID);
-        } else {
-            System.err.println("已存在");
-        }
+        return record;
     }
-
-    private static List<String> stockList = new ArrayList<String>();
-    private static Connection stockConn;
 
     private static MongoClient mongoClient ;
     private static MongoOperations mongoOps;
