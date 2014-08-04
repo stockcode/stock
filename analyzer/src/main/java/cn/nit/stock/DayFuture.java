@@ -1,11 +1,15 @@
 package cn.nit.stock;
 
 import cn.nit.stock.hexin.D1BarRecord;
+import com.mongodb.DBCollection;
+import com.mongodb.DBCursor;
+import com.mongodb.DBObject;
 import com.mongodb.MongoClient;
 import org.apache.commons.httpclient.DefaultHttpMethodRetryHandler;
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.HttpException;
 import org.apache.commons.httpclient.methods.GetMethod;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.mongodb.core.MongoOperations;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
@@ -35,48 +39,24 @@ public class DayFuture
         mongoClient = new MongoClient( "115.28.160.121" );
         mongoOps = new MongoTemplate(mongoClient, "future");
 
-        String[] stockList = new String[]{
-                "AU1412",
-                "AG1412",
-                "ZN1409",
-                "ZN1410",
-                "RU1409",
-                "RB1501",
-                "CU1409",
-                "AL1409",
-                "Y1501",
-                "PP1409",
-                "P1501",
-                "M1501",
-                "L1409",
-                "JM1409",
-                "JD1409",
-                "J1409",
-                "I1409",
-                "FB1409",
-                "C1501",
-                "BB1409",
-                "A1501",
-                "TC1409",
-                "TA1409",
-                "SR1501",
-                "RM1409",
-                "OI1501",
-                "ME1409",
-                "FG1501",
-                "CF1501"
-        };
+        DBCollection collection = mongoOps.getCollection("Instrument");
 
-        for (String stockcode : stockList) {
-			addD1Bar(stockcode);
+        DBCursor cursor = collection.find();
+        try {
+            while(cursor.hasNext()) {
+                DBObject object = cursor.next();
+                addD1Bar(object);
+                collection.save(object);
+            }
+        } finally {
+            cursor.close();
         }
-
-        addIFD1Bar("IF1407");
     }
 
-    private static void addIFD1Bar(String stockcode)
+    private static void addIFD1Bar(DBObject object)
         throws ClassNotFoundException, HttpException, IOException
     {
+        String stockcode = object.get("InstrumentID").toString();
         Connection conn;
         HttpClient client;
         GetMethod method;
@@ -130,16 +110,25 @@ public class DayFuture
         }
     }
 
-    private static void addD1Bar(String stockcode)
+    private static void addD1Bar(DBObject object)
             throws ClassNotFoundException, HttpException, IOException
     {
+        String instrumentID = object.get("InstrumentID").toString();
+
         Connection conn;
         HttpClient client;
         GetMethod method;
         //conn = ConnUtils.getConn((new StringBuilder("a")).append(stockcode).toString());
         client = new HttpClient();
 
-        method = new GetMethod((new StringBuilder("http://hq.sinajs.cn/list=")).append(stockcode).toString());
+
+        String code = instrumentID;
+
+        if (!StringUtils.isNumeric(instrumentID.substring(instrumentID.length()-4)))
+        {
+            code = instrumentID.substring(0, instrumentID.length() - 3) + "1" + instrumentID.substring(instrumentID.length() - 3);
+        }
+        method = new GetMethod((new StringBuilder("http://hq.sinajs.cn/list=")).append(code.toUpperCase()).toString());
 
         method.addRequestHeader("Content-type", "text/html; charset=utf-8");
         method.getParams().setParameter("http.method.retry-handler", new DefaultHttpMethodRetryHandler(3, false));
@@ -162,11 +151,11 @@ public class DayFuture
         String result = new String(sbf.toString().getBytes(method.getResponseCharSet()), charset);
         results = result.split("\"");
         results = results[1].split(",");
-        System.out.println((new StringBuilder(String.valueOf(stockcode))).append("=").append(results[0]).toString());
+        System.out.println((new StringBuilder(String.valueOf(instrumentID))).append("=").append(results[0]).toString());
         name = results[0].trim();
         if(name.equals(""))
         {
-            System.err.println(stockcode + "不存在");
+            System.err.println(instrumentID + "不存在");
             method.releaseConnection();
             return;
         }
@@ -177,14 +166,18 @@ public class DayFuture
         record.setHigh(Double.parseDouble(results[3]));
         record.setLow(Double.parseDouble(results[4]));
         record.setClose(Double.parseDouble(results[8]));
+        record.setAmount(Double.parseDouble(results[13]));
         record.setVolume(Integer.parseInt(results[14]));
         record.setDate(results[17].replaceAll("-", ""));
 
-        System.err.println(stockcode + ":" +record);
+        System.err.println(instrumentID + ":" +record);
+
+
+        object.put("Volume", record.getVolume());
 
         Query searchUserQuery = new Query(Criteria.where("date").is(record.getDate()));
-        if (!mongoOps.exists(searchUserQuery, D1BarRecord.class, stockcode)) {
-            mongoOps.insert(record, stockcode);
+        if (!mongoOps.exists(searchUserQuery, D1BarRecord.class, instrumentID)) {
+            mongoOps.insert(record, instrumentID);
         } else {
             System.err.println("已存在");
         }

@@ -2,7 +2,6 @@ package cn.nit.stock;
 
 import cn.nit.stock.hexin.D1BarFile;
 import cn.nit.stock.hexin.D1BarRecord;
-import cn.nit.stock.repository.D1BarRepository;
 import com.mongodb.DB;
 import com.mongodb.DBCollection;
 import com.mongodb.Mongo;
