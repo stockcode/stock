@@ -61,9 +61,10 @@ public class DayFuture
                     record = addIFD1Bar(code.toUpperCase());
                 }
                 else {
-                    //record = addD1Bar(code.toUpperCase());
-                    continue;
+                    record = addD1Bar(code.toUpperCase());
                 }
+
+                if (record == null) continue;
 
                 object.put("Volume", record.getVolume());
 
