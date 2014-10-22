@@ -2,6 +2,7 @@ package cn.nit.stock.model;
 
 import java.util.Date;
 
+
 public class TradeDay {
 	Double yesterdayPrice, openPrice, closePrice, highPrice, lowPrice;
 	String stockCode;
