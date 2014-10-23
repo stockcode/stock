@@ -28,6 +28,7 @@ import org.springframework.data.mongodb.core.MongoOperations;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 
 /**
  * Hello world!
@@ -50,17 +51,27 @@ public class Yesterday {
         //ResetYesterdayPrice();
 
         FillYesterdayPrice();
+
+        //RemoveInvalidDay();
 	}
+
+    private static void RemoveInvalidDay() {
+        for (StockName stockName : ds.find(StockName.class).asList()) {
+
+            System.err.println(stockName);
+
+            for(TradeDay tradeDay : mongoOps.findAll(TradeDay.class, stockName.getCode())) {
+                if (tradeDay.isInvalid()) {
+                    mongoOps.remove(tradeDay, stockName.getCode());
+                }
+            }
+        }
+    }
 
     private static void ResetYesterdayPrice() {
         for (StockName stockName : ds.find(StockName.class).asList()) {
 
-            for(TradeDay tradeDay : mongoOps.findAll(TradeDay.class, stockName.getCode())) {
-                tradeDay.setYesterdayPrice(0d);
-                mongoOps.save(tradeDay, stockName.getCode());
-            }
-
-            break;
+            mongoOps.updateMulti(new Query(Criteria.where("yesterdayPrice").gt(0)), Update.update("yesterdayPrice", 0), TradeDay.class, stockName.getCode());
         }
     }
 
@@ -74,18 +85,19 @@ public class Yesterday {
 			String stockcode = stockName.getCode();
 			System.err.println(stockName);
 
-            List<TradeDay> list = mongoOps.find(new Query(Criteria.where("yesterdayPrice").lt(0.1)).with(new Sort(Sort.Direction.ASC, "tradedate")), TradeDay.class, stockcode);
+            List<TradeDay> list = mongoOps.find(new Query(Criteria.where("yesterdayPrice").lt(0.1)).with(new Sort(Sort.Direction.DESC, "tradeDate")), TradeDay.class, stockcode);
 
-			for(int i = 1; i < list.size(); i ++) {
-                if (i == list.size() -1) break;
+			for(int i = 0; i < list.size()-1; i ++) {
 
-                TradeDay today = list.get(i+1);
-                TradeDay yesterday = list.get(i);
+                TradeDay today = list.get(i);
+                TradeDay yesterday = list.get(i+1);
 
                 today.setYesterdayPrice(yesterday.getClosePrice());
-				//System.err.println(today +"|||" + yesterday);
+				System.err.println(today +"|||" + yesterday);
                 mongoOps.save(today, stockcode);
 			}
+
+
 		}
     }
 }

@@ -1,10 +1,19 @@
 package cn.nit.stock;
 
+import cn.nit.stock.model.StockLimit;
+import cn.nit.stock.model.StockName;
+import cn.nit.stock.model.TradeDay;
+import com.mongodb.MongoClient;
+import org.mongodb.morphia.Datastore;
+import org.springframework.data.mongodb.core.MongoOperations;
+import org.springframework.data.mongodb.core.MongoTemplate;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.Date;
+import java.util.List;
 
 
 /**
@@ -13,73 +22,50 @@ import java.util.Date;
  */
 public class HistoryLimit 
 {
+    private static Datastore ds;
+
+    private static MongoClient mongoClient;
+
+    private static MongoOperations mongoOps;
+
     public static void main( String[] args ) throws Exception
-    {            	    		
-    	Connection conn1 = ConnUtils.getConn("stock");
-    	Statement statement = conn1.createStatement();
-    	
-    	Connection conn = ConnUtils.getConn();
-    	
-    	
-		Statement st = conn.createStatement();
-		Statement st1 = conn.createStatement();
-		
-		Statement updateStatement = conn.createStatement();
-		String sql = "select * from stock";
-		ResultSet resultSet = st.executeQuery(sql);
-		
-		while (resultSet.next()) {		
-			String stockcode = resultSet.getString("code");
-			String name = resultSet.getString("name");
-			System.err.println(stockcode);
-			AddStock.createDatabase(stockcode);
-			String type = "sznse";
-			if (stockcode.startsWith("6"))
-				type = "shase";
-			
-			PreparedStatement pstmt = conn.prepareStatement((new StringBuilder(
-					"use A")).append(stockcode).toString());
-			pstmt.execute();
-			
+    {
+        ds = ConnUtils.getDatastore();
+        mongoClient = ConnUtils.getMongo();
+        mongoOps = new MongoTemplate(mongoClient, "stock");
+
+        for (StockName stockName : ds.find(StockName.class).asList()) {
+
+
+            String stockcode = stockName.getCode();
+            System.err.println(stockName);
+
+
+
+            List<TradeDay> list = mongoOps.findAll(TradeDay.class, stockcode);
+    		
+    		for(TradeDay tradeDay : list) {
     		
     		
-    		sql = "select * from day where stockcode='" + stockcode + "' and tradedate >'2012-10-1' ";
-            ResultSet rSet = st1.executeQuery(sql);
-            
-            while (rSet.next()) {
-				Double yprice = rSet.getDouble("yesterday");
-				if (yprice.intValue() == 0) continue;
-				
-				Double closePrice = rSet.getDouble("close");
-				Double openPrice = rSet.getDouble("open");
-				Double lowPrice = rSet.getDouble("low");
-				Double highPrice =rSet.getDouble("high");
-				
-				Date tradedate = rSet.getDate("tradedate");
-    		
-    		
-              if (yprice + yprice*0.1 - closePrice < 0.01) {            	  
-            	  System.err.println("代码：" + stockcode + ",名称：" + name + ",涨停日期：" + tradedate);
-            	  StringBuilder sb = new StringBuilder();
-                  sb.append("insert into stocklimit(stockname, stockcode, yesterdayprice, openprice, lowprice, highprice, closeprice, limitdate) values('"+name);
-                  sb.append("','" + stockcode);
-                  sb.append("'," + yprice);
-                  sb.append("," + openPrice);
-                  sb.append("," + lowPrice);
-                  sb.append("," + highPrice);
-                  sb.append("," + closePrice);
-                  sb.append(",'" + tradedate + "')");
-                  
-                  sql = sb.toString();
-          	    System.err.println(sql);
-          	    statement.execute(sql);   
+              if (tradeDay.getYesterdayPrice() * 1.1 - tradeDay.getClosePrice() < 0.01) {
+
+            	  System.err.println("代码：" + stockcode + ",名称：" + stockName.getName() + ",涨停日期：" + tradeDay.getTradeDate());
+
+                  StockLimit stockLimit = new StockLimit();
+
+                  stockLimit.setStockName(stockName.getName());
+                  stockLimit.setStockCode(stockcode);
+                  stockLimit.setYesterdayPrice(tradeDay.getYesterdayPrice());
+                  stockLimit.setClosePrice(tradeDay.getClosePrice());
+                  stockLimit.setOpenPrice(tradeDay.getOpenPrice());
+                  stockLimit.setLowPrice(tradeDay.getLowPrice());
+                  stockLimit.setHighPrice(tradeDay.getHighPrice());
+                  stockLimit.setLimitDate(tradeDay.getTradeDate());
+
+                  mongoOps.save(stockLimit);
               }
               
-            }    		
+            }
     	}
-    	st.close();
-    	st1.close();
-    	conn.close();
-    	    	
     }
 }

@@ -15,7 +15,11 @@ public class TradeDay {
 	Double yesterdayPrice, openPrice, closePrice, highPrice, lowPrice;
 	String stockCode;
 	String tradeDate;
-	
+
+    public Boolean isInvalid() {
+        Double delta = yesterdayPrice - highPrice + (yesterdayPrice - lowPrice);
+        return Math.abs(delta) < 0.01;
+    }
 	
 	public Double getYesterdayPrice() {
 		return yesterdayPrice;
@@ -110,7 +114,9 @@ public class TradeDay {
 		return (yesterdayPrice*1.1 - highPrice < 0.01) && !isHighLimit();
 	}
 
-
+    public Boolean isOpenLimit() {
+        return isHighLimit() && (highPrice - openPrice < 0.01);
+    }
 
 	public TradeDay(Double yesterdayPrice, Double openPrice, Double closePrice,
 			Double highPrice, Double lowPrice, String stockCode, String tradeDate) {

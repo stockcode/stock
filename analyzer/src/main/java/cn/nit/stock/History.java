@@ -26,11 +26,7 @@ import java.util.List;
 /**
  * Hello world!
  */
-@EnableAutoConfiguration
 public class History implements CommandLineRunner {
-
-    @Autowired
-    private StockNameRepository stockNameRepository;
 
     public static void main(String[] args) throws Exception {
         SpringApplication.run(History.class, args);
@@ -77,7 +73,7 @@ public class History implements CommandLineRunner {
 
             String url = "http://table.finance.yahoo.com/table.csv?s=" + stockcode + "." + stocktype;
 
-            File tempFile = File.createTempFile(stockcode, ".csv");
+            File tempFile = new File("d:\\future\\data\\" + stockcode + ".csv");
 
             try {
                 FileUtils.copyURLToFile(new URL(url), tempFile, 30000, 30000);
@@ -85,8 +81,6 @@ public class History implements CommandLineRunner {
                 System.err.println(e);
                 continue;
             }
-
-            tempFile.deleteOnExit();
 
             firstLine = true;
 
