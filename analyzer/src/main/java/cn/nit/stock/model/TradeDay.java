@@ -1,9 +1,17 @@
 package cn.nit.stock.model;
 
+import org.bson.types.ObjectId;
+import org.mongodb.morphia.annotations.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+
 import java.util.Date;
 
-
+@Document
 public class TradeDay {
+
+    @Id
+    private ObjectId id;
+
 	Double yesterdayPrice, openPrice, closePrice, highPrice, lowPrice;
 	String stockCode;
 	String tradeDate;

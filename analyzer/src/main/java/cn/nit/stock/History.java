@@ -1,14 +1,18 @@
 package cn.nit.stock;
 
+import cn.nit.stock.dao.StockNameRepository;
 import cn.nit.stock.model.StockName;
 import cn.nit.stock.model.TradeDay;
 import com.mongodb.MongoClient;
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.io.FileUtils;
 import org.mongodb.morphia.Datastore;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.data.mongodb.core.MongoOperations;
 import org.springframework.data.mongodb.core.MongoTemplate;
-
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
@@ -22,10 +26,18 @@ import java.util.List;
 /**
  * Hello world!
  */
-public class History {
+@EnableAutoConfiguration
+public class History implements CommandLineRunner {
+
+    @Autowired
+    private StockNameRepository stockNameRepository;
 
     public static void main(String[] args) throws Exception {
+        SpringApplication.run(History.class, args);
+    }
 
+    @Override
+    public void run(String... strings) throws Exception {
         Boolean firstLine = true;
         DateFormat dataFormat = new SimpleDateFormat("yyyy-MM-dd");
 
