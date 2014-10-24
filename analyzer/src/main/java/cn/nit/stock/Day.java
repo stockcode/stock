@@ -3,43 +3,46 @@ package cn.nit.stock;
 import java.io.*;
 import java.sql.*;
 import java.util.*;
+
+import cn.nit.stock.model.StockLimit;
+import cn.nit.stock.model.StockName;
+import cn.nit.stock.model.TradeDay;
+import com.mongodb.MongoClient;
 import org.apache.commons.httpclient.*;
 import org.apache.commons.httpclient.methods.GetMethod;
 import org.apache.commons.httpclient.params.HttpMethodParams;
+import org.mongodb.morphia.Datastore;
+import org.springframework.data.mongodb.core.MongoOperations;
+import org.springframework.data.mongodb.core.MongoTemplate;
 
 public class Day
 {
 
-    public Day()
-    {
-    }
+    private static Datastore ds;
 
-    private static void buildStockList()
-        throws ClassNotFoundException, SQLException
-    {
-        Connection conn = ConnUtils.getConn("stock");
-        Statement st = conn.createStatement();
-        String sql = "select * from stock";
-        for(ResultSet rs = st.executeQuery(sql); rs.next(); stockList.add(rs.getString("code")));
-        st.close();
-        conn.close();
-    }
+    private static MongoClient mongoClient;
 
-    public static void main(String args[])
-        throws Exception
-    {
-        buildStockList();
-        stockConn = ConnUtils.getConn("stock");
-        
-        for (String stockcode : stockList) {
-			addD1Bar(stockcode);
+    private static MongoOperations mongoOps;
+
+    public static void main( String[] args ) throws Exception {
+        ds = ConnUtils.getDatastore();
+        mongoClient = ConnUtils.getMongo();
+        mongoOps = new MongoTemplate(mongoClient, "stock");
+
+        List<String> limit = new ArrayList<String>();
+
+        for (StockName stockName : ds.find(StockName.class).asList()) {
+            System.err.println(stockName);
+            addD1Bar(stockName);
         }
 
     }
 
-    private static void addD1Bar(String stockcode)
+    private static void addD1Bar(StockName stockName)
         throws ClassNotFoundException, SQLException, HttpException, IOException
     {
+        String stockcode = stockName.getCode();
+
         Connection conn;
         HttpClient client;
         GetMethod method;
@@ -77,19 +80,10 @@ public class Day
             method.releaseConnection();
             return;
         }
-        String openprice;
-        String yesterdayprice;
-        String closeprice;
-        String highprice;
-        String lowprice;
         String volume;
         String amount;
         String tradedate;
-        openprice = results[1];
-        yesterdayprice = results[2];
-        closeprice = results[3];
-        highprice = results[4];
-        lowprice = results[5];
+
         volume = results[8];
         amount = results[9];
         tradedate = results[30];
@@ -100,46 +94,35 @@ public class Day
         }
         if(name.equals("上证指数"))
             stockcode = "1A0001";
-        StringBuilder sb = new StringBuilder();
-        sb.append((new StringBuilder("insert into day(stockcode, open, high, low, close, volume, amount, tradedate) values('")).append(stockcode).toString());
-        sb.append((new StringBuilder("',")).append(openprice).toString());
-        sb.append((new StringBuilder(",")).append(highprice).toString());
-        sb.append((new StringBuilder(",")).append(lowprice).toString());
-        sb.append((new StringBuilder(",")).append(closeprice).toString());
-        sb.append((new StringBuilder(",")).append(volume).toString());
-        sb.append((new StringBuilder(",")).append(amount).toString());
-        sb.append((new StringBuilder(",'")).append(tradedate).append("')").toString());
-        String sql = sb.toString();
-        //System.err.println(sql);
-        //Statement st = conn.createStatement();
-        //st.execute(sql);
-        Double yprice = Double.valueOf(Double.parseDouble(yesterdayprice));
-        Double closePrice = Double.valueOf(Double.parseDouble(closeprice));
-        Double highPrice = Double.valueOf(Double.parseDouble(highprice));
-        if(yprice * 1.1 - highPrice < 0.01)
+
+        Double openprice = Double.parseDouble(results[1]);
+        Double yesterdayprice = Double.parseDouble(results[2]);
+        Double closeprice = Double.parseDouble(results[3]);
+        Double highprice = Double.parseDouble(results[4]);
+        Double lowprice = Double.parseDouble(results[5]);
+
+        TradeDay tradeDay = new TradeDay(yesterdayprice, openprice, closeprice, highprice, lowprice, stockcode, tradedate);
+
+        System.err.println(tradeDay);
+
+        mongoOps.insert(tradeDay, stockcode);
+
+        if(yesterdayprice * 1.1 - closeprice < 0.01)
         {
             System.err.println((new StringBuilder("股票代码：")).append(stockcode).append(",名称：").append(name).append(",涨停日期：").append(tradedate).toString());
-            sb = new StringBuilder();
-            sb.append("insert into ");
-            if(highPrice - closePrice > 0.01)
-                sb.append("stocknotlimit");
-            else
-                sb.append("stocklimit");
-            sb.append((new StringBuilder("(stockname, stockcode, yesterdayprice, openprice, lowprice, highprice, closeprice, limitdate) values('")).append(name).toString());
-            sb.append((new StringBuilder("','")).append(stockcode).toString());
-            sb.append((new StringBuilder("',")).append(yprice).toString());
-            sb.append((new StringBuilder(",")).append(openprice).toString());
-            sb.append((new StringBuilder(",")).append(lowprice).toString());
-            sb.append((new StringBuilder(",")).append(highprice).toString());
-            sb.append((new StringBuilder(",")).append(closePrice).toString());
-            sb.append((new StringBuilder(",'")).append(tradedate).append("')").toString());
-            Statement limitSt = stockConn.createStatement();
-            sql = sb.toString();
-            limitSt.execute(sql);
+
+            StockLimit stockLimit = new StockLimit();
+
+            stockLimit.setStockName(stockName.getName());
+            stockLimit.setStockCode(stockcode);
+            stockLimit.setYesterdayPrice(tradeDay.getYesterdayPrice());
+            stockLimit.setClosePrice(tradeDay.getClosePrice());
+            stockLimit.setOpenPrice(tradeDay.getOpenPrice());
+            stockLimit.setLowPrice(tradeDay.getLowPrice());
+            stockLimit.setHighPrice(tradeDay.getHighPrice());
+            stockLimit.setLimitDate(tradeDay.getTradeDate());
+
+            mongoOps.save(stockLimit);
         }
     }
-
-    private static List<String> stockList = new ArrayList<String>();
-    private static Connection stockConn;
-
 }
