@@ -17,8 +17,8 @@ public class TradeDay {
 	String tradeDate;
 
     public Boolean isInvalid() {
-        Double delta = yesterdayPrice - highPrice + (yesterdayPrice - lowPrice);
-        return Math.abs(delta) < 0.01;
+        Double delta = Math.abs(yesterdayPrice - highPrice) + Math.abs(yesterdayPrice - lowPrice);
+        return delta < 0.01;
     }
 	
 	public Double getYesterdayPrice() {

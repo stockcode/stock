@@ -50,9 +50,9 @@ public class Yesterday {
 
         //ResetYesterdayPrice();
 
-        FillYesterdayPrice();
+        //FillYesterdayPrice();
 
-        //RemoveInvalidDay();
+        RemoveInvalidDay();
 	}
 
     private static void RemoveInvalidDay() {
@@ -65,6 +65,7 @@ public class Yesterday {
                     mongoOps.remove(tradeDay, stockName.getCode());
                 }
             }
+
         }
     }
 
