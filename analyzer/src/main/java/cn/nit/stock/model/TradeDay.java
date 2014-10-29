@@ -4,10 +4,15 @@ import org.bson.types.ObjectId;
 import org.mongodb.morphia.annotations.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.Date;
 
 @Document
 public class TradeDay {
+
+
+    private static DateFormat df = new SimpleDateFormat("yyyy-MM-dd");
 
     @Id
     private ObjectId id;
@@ -151,7 +156,11 @@ public class TradeDay {
 		builder.append(tradeDate);
 		builder.append("]");
 		return builder.toString();
-	}	
-	
-	
+	}
+
+
+    public boolean isTodayLimit() {
+        Date today = new Date();
+        return df.format(today).equals(tradeDate) && isOpenLimit();
+    }
 }

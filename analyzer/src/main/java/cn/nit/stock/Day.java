@@ -36,6 +36,10 @@ public class Day
             addD1Bar(stockName);
         }
 
+        SuccessiveLimit successiveLimit = new SuccessiveLimit();
+
+        successiveLimit.main(args);
+
     }
 
     private static void addD1Bar(StockName stockName)
