@@ -1,6 +1,7 @@
 package cn.nit.stock;
 
 import java.io.*;
+import java.net.URL;
 import java.sql.*;
 import java.util.*;
 
@@ -11,9 +12,12 @@ import com.mongodb.MongoClient;
 import org.apache.commons.httpclient.*;
 import org.apache.commons.httpclient.methods.GetMethod;
 import org.apache.commons.httpclient.params.HttpMethodParams;
+import org.apache.commons.io.IOUtils;
 import org.mongodb.morphia.Datastore;
 import org.springframework.data.mongodb.core.MongoOperations;
 import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 
 public class Day
 {
@@ -47,41 +51,20 @@ public class Day
     {
         String stockcode = stockName.getCode();
 
-        Connection conn;
-        HttpClient client;
-        GetMethod method;
-        //conn = ConnUtils.getConn((new StringBuilder("a")).append(stockcode).toString());
-        client = new HttpClient();
         String stocktype = "sz";
         if(stockcode.startsWith("6"))
             stocktype = "sh";
-        method = new GetMethod((new StringBuilder("http://hq.sinajs.cn/list=")).append(stocktype).append(stockcode).toString());
-        method.addRequestHeader("Content-type", "text/html; charset=utf-8");
-        method.getParams().setParameter("http.method.retry-handler", new DefaultHttpMethodRetryHandler(3, false));
-        String results[];
-        String name;
-        InputStream ins = null;
-        BufferedReader br = null;
-        int statusCode = client.executeMethod(method);
-        if(statusCode != 200)
-            System.err.println((new StringBuilder("Method failed: ")).append(method.getStatusLine()).toString());
-        ins = method.getResponseBodyAsStream();
-        String charset = method.getResponseCharSet();
-        if(charset.toUpperCase().equals("ISO-8859-1"))
-            charset = "gbk";
-        br = new BufferedReader(new InputStreamReader(ins, method.getResponseCharSet()));
-        StringBuffer sbf = new StringBuffer();
-        for(String line = null; (line = br.readLine()) != null;)
-            sbf.append(line);
 
-        String result = new String(sbf.toString().getBytes(method.getResponseCharSet()), charset);
-        results = result.split("\"");
+
+        URL url = new URL(new StringBuilder("http://hq.sinajs.cn/list=").append(stocktype).append(stockcode).toString());
+
+        String result = IOUtils.toString(url,"GBK");
+        String results[] = result.split("\"");
         results = results[1].split(",");
         System.out.println((new StringBuilder(String.valueOf(stockcode))).append("=").append(results[0]).toString());
-        name = results[0].trim();
+        String name = results[0].trim();
         if(name.equals(""))
         {
-            method.releaseConnection();
             return;
         }
         String volume;
@@ -93,7 +76,6 @@ public class Day
         tradedate = results[30];
         if(volume.equals("0"))
         {
-            method.releaseConnection();
             return;
         }
         if(name.equals("上证指数"))
@@ -109,7 +91,11 @@ public class Day
 
         System.err.println(tradeDay);
 
-        mongoOps.insert(tradeDay, stockcode);
+        if (!mongoOps.exists((new Query(Criteria.where("tradeDate").is(tradedate))), TradeDay.class, stockcode)) {
+            mongoOps.insert(tradeDay, stockcode);
+        } else {
+            System.err.println("已存在");
+        }
 
         if(yesterdayprice * 1.1 - closeprice < 0.01)
         {
@@ -126,7 +112,9 @@ public class Day
             stockLimit.setHighPrice(tradeDay.getHighPrice());
             stockLimit.setLimitDate(tradeDay.getTradeDate());
 
-            mongoOps.save(stockLimit);
+            if (!mongoOps.exists((new Query(Criteria.where("limitDate").is(tradedate))), StockLimit.class)) {
+                mongoOps.save(stockLimit);
+            }
         }
     }
 }
